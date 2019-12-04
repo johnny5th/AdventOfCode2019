@@ -1,7 +1,5 @@
-extern crate array_tool;
-
 use std::fs;
-use array_tool::vec::*;
+//use std::cmp::Ordering;
 
 #[derive(Debug)]
 struct Wire {
@@ -13,14 +11,8 @@ impl Wire {
         self.points.push(*point);
     }
 
-    fn last_point(&self) -> Point {
-        match self.points.last() {
-            Some(point) => point.clone(),
-            _ => Point{x: 0, y: 0}
-        }
-    }
+    fn point_exists(&mut self, point: &Point) -> bool {
 
-    fn point_exists(&self, point: &Point) -> bool {
         let point_found = match self.points.binary_search(&point) {
             Ok(_pos) => true,
             Err(_pos) => false
@@ -35,25 +27,22 @@ impl Wire {
             _ => Point{x: 0, y: 0}
         };
 
-        for amount in 1..distance {
-            let new_point: Point;
-
-            match dir {
-                'U' => new_point = Point{x: last_point.x, y: last_point.y + amount},
-                'D' => new_point = Point{x: last_point.x, y: last_point.y - amount},
-                'L' => new_point = Point{x: last_point.x - amount, y: last_point.y },
-                'R' => new_point = Point{x: last_point.x + amount, y: last_point.y },
+        for amount in 1..=distance {
+            let new_point = match dir {
+                'U' => Point{x: last_point.x, y: last_point.y + amount},
+                'D' => Point{x: last_point.x, y: last_point.y - amount},
+                'L' => Point{x: last_point.x - amount, y: last_point.y },
+                'R' => Point{x: last_point.x + amount, y: last_point.y },
                 _ => panic!()
-            }
+            };
 
-            if !self.point_exists(&new_point) {
-                self.add_point(&new_point);
-            }
+            self.add_point(&new_point);
         }
     }
 
-    fn intersect(&self, other: &Wire) -> Vec<Point> {
+    fn intersect(&mut self, other: &Wire) -> Vec<Point> {
         let mut out = vec![];
+        self.points.sort_unstable();
         for x in other.points.iter() {
             if self.point_exists(x) {
                 out.push(*x)
@@ -110,6 +99,7 @@ fn main() {
                 Ok(int) => *int,
                 _ => 0
             };
+
             wire.add_points(dir, distance)
         }
     }
