@@ -1,5 +1,5 @@
 use std::fs;
-//use std::cmp::Ordering;
+use std::cmp::Ordering;
 
 #[derive(Debug)]
 struct Wire {
@@ -11,57 +11,78 @@ impl Wire {
         self.points.push(*point);
     }
 
-    fn point_exists(&mut self, point: &Point) -> bool {
-
-        let point_found = match self.points.binary_search(&point) {
-            Ok(_pos) => true,
-            Err(_pos) => false
-        };
-
-        point_found
+    fn point_exists(&self, point: &Point) -> Result<usize, usize> {
+        self.points.binary_search(&point)
     }
 
     fn add_points(&mut self, dir: char, distance: i32) {
+        // Grab the last point to buid off of before sorting.
         let last_point = match self.points.last() {
             Some(point) => point.clone(),
-            _ => Point{x: 0, y: 0}
+            _ => Point{x: 0, y: 0, steps: 0}
         };
+
+        // Sort the points for binary searching
+        self.points.sort_unstable();
 
         for amount in 1..=distance {
             let new_point = match dir {
-                'U' => Point{x: last_point.x, y: last_point.y + amount},
-                'D' => Point{x: last_point.x, y: last_point.y - amount},
-                'L' => Point{x: last_point.x - amount, y: last_point.y },
-                'R' => Point{x: last_point.x + amount, y: last_point.y },
+                'U' => Point{x: last_point.x, y: last_point.y + amount, steps: last_point.steps + amount},
+                'D' => Point{x: last_point.x, y: last_point.y - amount, steps: last_point.steps + amount},
+                'L' => Point{x: last_point.x - amount, y: last_point.y, steps: last_point.steps + amount},
+                'R' => Point{x: last_point.x + amount, y: last_point.y, steps: last_point.steps + amount},
                 _ => panic!()
             };
 
-            self.add_point(&new_point);
+            // Assume we can binary search and not worry about our newly added points being a duplicate.
+            match self.point_exists(&new_point) {
+                Err(_num) => self.add_point(&new_point),
+                _ => {}
+            }
         }
     }
 
-    fn intersect(&mut self, other: &Wire) -> Vec<Point> {
+    fn intersect(&mut self, other: &Wire) -> Vec<[Point; 2]> {
         let mut out = vec![];
         self.points.sort_unstable();
         for x in other.points.iter() {
-            if self.point_exists(x) {
-                out.push(*x)
+            match self.point_exists(x) {
+                Ok(_num) => out.push([self.points[_num], *x]),
+                _ => {}
             }
         }
-
         out
-      }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Eq)]
 struct Point {
     x: i32,
-    y: i32
+    y: i32,
+    steps: i32
 }
 
 impl Point {
     fn distance_to_center(&self) -> i32 {
         self.x.abs() + self.y.abs()
+    }
+}
+
+impl PartialEq for Point {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+
+impl Ord for Point {
+    fn cmp(&self, other: &Self) -> Ordering {
+        (self.x, self.y).cmp(&(other.x, other.y))
+    }
+}
+
+impl PartialOrd for Point {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -104,9 +125,20 @@ fn main() {
         }
     }
 
-    let mut intersect = wire1.intersect(&wire2);
+    let intersect = wire1.intersect(&wire2);
 
-    intersect.sort_by(|a,b| a.distance_to_center().cmp(&b.distance_to_center()));
+    let mut intersect_closest_to_center = intersect.clone();
+    intersect_closest_to_center.sort_by(|a,b| a[0].distance_to_center().cmp(&b[0].distance_to_center()));
+    let intersect_closest_to_center = intersect_closest_to_center.first().unwrap()[0].distance_to_center();
 
-    println!("Manhatten distance to closest intersection: {}", intersect.first().unwrap().distance_to_center());
+    let mut intersect_fewest_steps = intersect.clone();
+    intersect_fewest_steps.sort_by(|a,b| (a[0].steps + a[1].steps).cmp(&(b[0].steps + b[1].steps)));
+    let intersect_fewest_steps = intersect_fewest_steps.first().unwrap();
+    let intersect_fewest_steps = {
+        intersect_fewest_steps[0].steps + intersect_fewest_steps[1].steps
+    };
+
+    println!("Intersection closest to origin: {}", intersect_closest_to_center);
+
+    println!("Intersection with fewest steps: {}", intersect_fewest_steps);
 }
